@@ -146,8 +146,16 @@ function sourceText() {
   return typed ? typed : state.selText;
 }
 
+// 「Moji_Joho のみ表示」が ON のとき、候補を Moji_Joho コレクションに限定する
+const isMojiJoho = (name) => /^moji[_-]?joho$/i.test(name);
+
+function visibleCandidates(baseCp) {
+  const all = candidatesFor(state.index, baseCp);
+  return $("mjOnly").checked ? all.filter((c) => isMojiJoho(c.collection)) : all;
+}
+
 function hasCandidates(c) {
-  return candidatesFor(state.index, c.base).length > 0;
+  return visibleCandidates(c.base).length > 0;
 }
 
 function recompute(keepTarget = false) {
@@ -207,7 +215,7 @@ function renderCandidates(cur) {
     sel.replaceChildren();
     return;
   }
-  const all = candidatesFor(state.index, cur.base);
+  const all = visibleCandidates(cur.base);
 
   // コレクション絞り込みの選択肢
   const cols = [...new Set(all.map((c) => c.collection))];
@@ -225,9 +233,12 @@ function renderCandidates(cur) {
   if (all.length === 0) {
     const p = document.createElement("div");
     p.className = "empty";
-    p.textContent = state.index
-      ? "この文字には登録済みの異体字がありません。"
-      : "データが読み込まれていません。";
+    const hiddenOthers = state.index && $("mjOnly").checked && candidatesFor(state.index, cur.base).length > 0;
+    p.textContent = !state.index
+      ? "データが読み込まれていません。"
+      : hiddenOthers
+        ? "この文字には Moji_Joho の異体字がありません(他のコレクションは、チェックを外すと表示されます)。"
+        : "この文字には登録済みの異体字がありません。";
     cards.appendChild(p);
   }
 }
@@ -355,6 +366,11 @@ function bind() {
     applyPreviewFont();
     try { localStorage.setItem("ivs.font", $("font").value); } catch {}
   });
+  $("mjOnly").addEventListener("change", () => {
+    try { localStorage.setItem("ivs.mjOnly", $("mjOnly").checked ? "1" : "0"); } catch {}
+    state.collection = "";
+    recompute(true);
+  });
   $("previewMode").addEventListener("change", () => {
     try { localStorage.setItem("ivs.previewMode", $("previewMode").value); } catch {}
     render();
@@ -367,6 +383,7 @@ Office.onReady(async (info) => {
   state.inWord = info && info.host === Office.HostType.Word;
   try { $("font").value = localStorage.getItem("ivs.font") || ""; } catch {}
   try { $("previewMode").value = localStorage.getItem("ivs.previewMode") || "image"; } catch {}
+  try { $("mjOnly").checked = localStorage.getItem("ivs.mjOnly") !== "0"; } catch {}
   applyPreviewFont();
   bind();
   await loadIndex();
