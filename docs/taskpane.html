@@ -38,7 +38,15 @@
   </section>
 
   <section>
-    <h2>表示フォント</h2>
+    <h2>プレビュー</h2>
+    <label class="field">
+      <span>表示方式</span>
+      <select id="previewMode">
+        <option value="image">GlyphWiki の画像(ネット接続が必要)</option>
+        <option value="font">フォントで表示</option>
+      </select>
+    </label>
+    <p class="muted">画像は字形の見本です。Word での実際の表示は、使うフォントに依存します。</p>
     <label class="field">
       <span>プレビューのフォント</span>
       <input id="font" list="fonts" placeholder="空欄で自動" autocomplete="off" />

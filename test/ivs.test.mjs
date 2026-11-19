@@ -5,7 +5,15 @@ import assert from "node:assert/strict";
 import {
   isVS, splitClusters, stripVS, countVS, replaceCluster,
   parseIvdSequences, parseStandardizedVariants, buildIndex, candidatesFor, toSequence,
+  glyphWikiName, glyphWikiUrl,
 } from "../docs/ivs.js";
+
+test("glyphWikiName / glyphWikiUrl", () => {
+  assert.equal(glyphWikiName(0x845b, 0xe0100), "u845b-ue0100");
+  assert.equal(glyphWikiName(0x845b, null), "u845b");
+  assert.equal(glyphWikiName(0x20b9f, 0xe0101), "u20b9f-ue0101");
+  assert.equal(glyphWikiUrl("u845b-ue0100"), "https://glyphwiki.org/glyph/u845b-ue0100.svg");
+});
 
 const IVS1 = "\u{E0100}";
 const IVS2 = "\u{E0101}";

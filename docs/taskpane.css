@@ -52,6 +52,8 @@ input[type="text"], input:not([type]), select {
 .card:hover { border-color: var(--accent); background: var(--accent-bg); }
 .card.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .glyph { font-family: var(--glyph-font); font-size: 34px; line-height: 1.2; }
+.gimg { width: 44px; height: 44px; object-fit: contain; }
+.fb { font-size: 10px; color: #a56a00; }
 .cp { font-size: 10px; color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; }
 .col { font-size: 10px; color: var(--accent); word-break: break-all; }
 .empty { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }

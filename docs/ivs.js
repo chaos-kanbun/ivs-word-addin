@@ -123,6 +123,20 @@ export function candidatesFor(index, baseCp) {
   return list.map(([vs, collection, id]) => ({ vs: parseInt(vs, 16), collection, id }));
 }
 
+/**
+ * GlyphWiki のグリフ名。IVS は `u845b-ue0100`、基本字形は `u845b`。
+ * (glyphwiki.org/wiki/u845b-ue0100 の形式を確認済み)
+ */
+export function glyphWikiName(baseCp, vsCp) {
+  const h = (cp) => cp.toString(16).toLowerCase();
+  return vsCp == null ? `u${h(baseCp)}` : `u${h(baseCp)}-u${h(vsCp)}`;
+}
+
+/** GlyphWiki の SVG 画像 URL(※URL形式は未確認。読み込めない場合は呼び出し側でフォント表示に戻す) */
+export function glyphWikiUrl(name) {
+  return `https://glyphwiki.org/glyph/${encodeURIComponent(name)}.svg`;
+}
+
 export function toSequence(baseCp, vsCp) {
   return String.fromCodePoint(baseCp) + (vsCp == null ? "" : String.fromCodePoint(vsCp));
 }

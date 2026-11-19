@@ -9,6 +9,8 @@ import {
   parseIvdSequences,
   parseStandardizedVariants,
   buildIndex,
+  glyphWikiName,
+  glyphWikiUrl,
 } from "./ivs.js";
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +30,10 @@ function status(msg, isErr = false) {
   const el = $("status");
   el.textContent = msg;
   el.className = "status" + (isErr ? " err" : "");
+}
+
+function previewMode() {
+  return $("previewMode").value === "font" ? "font" : "image";
 }
 
 function currentFont() {
@@ -230,16 +236,36 @@ function makeCard(base, vs, collection, id, isCurrent) {
   const b = document.createElement("button");
   b.type = "button";
   b.className = "card" + (isCurrent ? " cur" : "");
+  const seq = toSequence(base, vs);
   const g = document.createElement("span");
   g.className = "glyph";
-  g.textContent = toSequence(base, vs);
+  g.textContent = seq;
+  const fb = document.createElement("span");
+  fb.className = "fb";
+  fb.textContent = "フォント表示";
+  fb.hidden = true;
+  let visual = g;
+  if (previewMode() === "image") {
+    // GlyphWiki の字形画像。読み込めなければフォント表示に戻す
+    const img = new Image();
+    img.className = "gimg";
+    img.alt = seq;
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+    img.addEventListener("error", () => {
+      img.replaceWith(g);
+      fb.hidden = false;
+    });
+    img.src = glyphWikiUrl(glyphWikiName(base, vs));
+    visual = img;
+  }
   const cp = document.createElement("span");
   cp.className = "cp";
   cp.textContent = "U+" + cpHex(base) + (vs != null ? " U+" + cpHex(vs) : "");
   const col = document.createElement("span");
   col.className = "col";
   col.textContent = id ? `${collection} ${id}` : collection;
-  b.append(g, cp, col);
+  b.append(visual, cp, col, fb);
   b.title = col.textContent;
   b.addEventListener("click", () => applyVariant(toSequence(base, vs)));
   return b;
@@ -329,6 +355,10 @@ function bind() {
     applyPreviewFont();
     try { localStorage.setItem("ivs.font", $("font").value); } catch {}
   });
+  $("previewMode").addEventListener("change", () => {
+    try { localStorage.setItem("ivs.previewMode", $("previewMode").value); } catch {}
+    render();
+  });
   $("strip").addEventListener("click", stripSelection);
   $("importBtn").addEventListener("click", importData);
 }
@@ -336,6 +366,7 @@ function bind() {
 Office.onReady(async (info) => {
   state.inWord = info && info.host === Office.HostType.Word;
   try { $("font").value = localStorage.getItem("ivs.font") || ""; } catch {}
+  try { $("previewMode").value = localStorage.getItem("ivs.previewMode") || "image"; } catch {}
   applyPreviewFont();
   bind();
   await loadIndex();
