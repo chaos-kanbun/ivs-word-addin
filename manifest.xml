@@ -12,7 +12,7 @@
   <DefaultLocale>ja-JP</DefaultLocale>
   <DisplayName DefaultValue="異体字セレクタ"/>
   <Description DefaultValue="選択した漢字の異体字(IVS)を一覧表示し、クリックで置換します。"/>
-  <IconUrl DefaultValue="https://chaos-kanbun.github.io/ivs-word-addin/assets/icon-32.png"/>
+  <IconUrl DefaultValue="ttps://chaos-kanbun.github.io/ivs-word-addin/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://chaos-kanbun.github.io/ivs-word-addin/assets/icon-80.png"/>
   <SupportUrl DefaultValue="https://chaos-kanbun.github.io/ivs-word-addin/taskpane.html"/>
   <AppDomains>
