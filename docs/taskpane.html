@@ -9,6 +9,20 @@
 </head>
 <body>
   <main>
+    <section class="tools">
+      <div class="btnrow">
+        <button id="toOld" class="secondary" type="button">旧字体へ</button>
+        <button id="toNew" class="secondary" type="button">新字体へ</button>
+        <button id="strip" class="secondary" type="button">IVS除去</button>
+      </div>
+      <div id="kyushinPanel" hidden>
+        <div class="row">
+          <span class="muted">変換先が複数ある字:選ぶとその字だけ変換</span>
+          <button id="kyushinCancel" class="link" type="button">閉じる</button>
+        </div>
+        <div id="kyushinChoices"></div>
+      </div>
+    </section>
     <section class="top">
       <div class="row">
         <h2>対象の文字</h2>
@@ -28,21 +42,7 @@
       <div id="cards" class="cards"></div>
     </section>
 
-    <section class="bottom">
-      <div id="kyushinPanel" hidden>
-        <div class="row">
-          <span class="muted">変換先が複数ある字:選ぶとその字だけ変換</span>
-          <button id="kyushinCancel" class="link" type="button">閉じる</button>
-        </div>
-        <div id="kyushinChoices"></div>
-      </div>
-      <div class="btnrow">
-        <button id="toOld" class="secondary" type="button">旧字体へ</button>
-        <button id="toNew" class="secondary" type="button">新字体へ</button>
-        <button id="strip" class="secondary" type="button">IVS除去</button>
-      </div>
-      <p id="status" class="status" role="status"></p>
-    </section>
+    <p id="status" class="status" role="status"></p>
   </main>
 
   <script type="module" src="taskpane.js"></script>

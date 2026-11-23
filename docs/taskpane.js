@@ -218,6 +218,7 @@ async function replaceInSelection(ops) {
       marked = true;
     } catch (e) { /* しおりが使えなくても置換は続ける */ }
     // 異体字セレクタ付きの文字を先に、そのあとに単独の文字を処理する
+    const replaced = []; // 置換後の範囲(選択し直すときに使う)
     for (const pass of [ops.filter((o) => len(o) > 1), ops.filter((o) => len(o) === 1)]) {
       if (pass.length === 0) continue;
       const found = pass.map((o) => {
@@ -229,15 +230,24 @@ async function replaceInSelection(ops) {
       pass.forEach((o, i) => {
         const items = found[i].items;
         const targets = o.nth == null ? items : items.slice(o.nth, o.nth + 1);
-        for (const it of targets) it.insertText(o.to, "Replace");
+        for (const it of targets) replaced.push(it.insertText(o.to, "Replace"));
       });
       await ctx.sync();
     }
+    // 元の選択範囲を選択し直す。しおりの範囲と、置換した範囲をすべて含む範囲を選ぶので、
+    // しおりが端で縮んでも、選択が外れたり欠けたりしない。
+    let base = sel;
     if (marked) {
       const r = ctx.document.getBookmarkRangeOrNullObject(BOOKMARK);
       r.load("isNullObject");
       await ctx.sync();
-      if (!r.isNullObject) r.select();
+      if (!r.isNullObject) base = r;
+    }
+    let whole = base;
+    for (const nr of replaced) whole = whole.expandTo(nr);
+    whole.select();
+    await ctx.sync();
+    if (marked) {
       ctx.document.deleteBookmark(BOOKMARK);
       await ctx.sync();
     }
