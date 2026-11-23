@@ -75,25 +75,7 @@
     <button id="strip" class="secondary">選択範囲の異体字セレクタをすべて除去</button>
   </section>
 
-  <section>
-    <details id="dataBox">
-      <summary>異体字データ <span id="dataInfo" class="muted"></span></summary>
-      <p class="muted">
-        初回のみ、Unicode 公式の <code>IVD_Sequences.txt</code>(必須)と
-        <code>StandardizedVariants.txt</code>(任意)を選んで読み込みます。
-        読み込んだデータはこの端末に保存されます。
-      </p>
-      <label class="field">
-        <span>IVD_Sequences.txt</span>
-        <input id="ivdFile" type="file" accept=".txt,text/plain" />
-      </label>
-      <label class="field">
-        <span>StandardizedVariants.txt(任意)</span>
-        <input id="svFile" type="file" accept=".txt,text/plain" />
-      </label>
-      <button id="importBtn" class="secondary" type="button">読み込む</button>
-    </details>
-  </section>
+  <p id="dataInfo" class="muted"></p>
 
   <p id="status" class="status" role="status"></p>
 

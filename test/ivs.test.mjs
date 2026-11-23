@@ -77,3 +77,18 @@ test("parseStandardizedVariants: CJK以外は除外 (合成データ)", () => {
   assert.equal(rows[0].base, 0x4fae);
   assert.equal(rows[0].collection, "StandardizedVariants");
 });
+
+// 同梱データ(docs/data/ivd.json)の整合性チェック。ファイルがあるときのみ実行。
+import { existsSync, readFileSync } from "node:fs";
+test("同梱 ivd.json のコレクション別件数", { skip: !existsSync(new URL("../docs/data/ivd.json", import.meta.url)) }, () => {
+  const idx = JSON.parse(readFileSync(new URL("../docs/data/ivd.json", import.meta.url), "utf8"));
+  const per = {};
+  for (const k of Object.keys(idx)) for (const [, c] of idx[k]) per[c] = (per[c] || 0) + 1;
+  assert.deepEqual(per, {
+    "Adobe-Japan1": 14684, "Hanyo-Denshi": 13045, "Moji_Joho": 11392,
+    "StandardizedVariants": 1002, "CAAPH": 198, "MSARG": 154, "KRName": 36,
+  });
+  // 葛: Moji_Joho は E0102〜E0108 の7件(E0109 は Hanyo-Denshi のみ)
+  const mj = idx["845B"].filter(([, c]) => c === "Moji_Joho").map(([v]) => v);
+  assert.deepEqual(mj, ["E0102","E0103","E0104","E0105","E0106","E0107","E0108"]);
+});

@@ -7,7 +7,7 @@ Office.js 製なので、Mac / Windows / ブラウザ版 Word で同じファイ
 
 1. アドイン本体(`docs/`)は静的ファイルだけ。GitHub Pages で公開します(HTTPS が必須のため)。
 2. Word には、公開 URL を書いた `manifest.xml` を登録します。
-3. 異体字データは Unicode 公式の txt を、アドインの画面から読み込みます(初回のみ。端末内に保存)。
+3. 異体字データ(`docs/data/ivd.json`)は同梱済みです。起動時に自動で読み込まれるので、利用者の操作は不要です。
 
 コマンド操作は一切不要です。
 
@@ -15,7 +15,7 @@ Office.js 製なので、Mac / Windows / ブラウザ版 Word で同じファイ
 
 ```
 manifest.xml        Word に登録する設定ファイル(URL の書き換えが必要)
-docs/               公開するファイル一式(taskpane.html / .js / .css, ivs.js, assets/)
+docs/               公開するファイル一式(taskpane.html / .js / .css, ivs.js, assets/, data/ivd.json)
 test/ivs.test.mjs   開発者向けのテスト(使うだけなら不要)
 ```
 
@@ -51,15 +51,15 @@ test/ivs.test.mjs   開発者向けのテスト(使うだけなら不要)
 **Word on the web(補助)**
 [挿入] → [アドイン] → [個人用アドイン] → [マイ アドインのアップロード] で `manifest.xml` を指定。
 
-### D. 異体字データを読み込む(初回のみ)
+### D. 異体字データについて
 
-次の2つをブラウザで開き、txt を保存します。
+読み込み操作は不要です。`docs/data/ivd.json` が公開サイトに入っていれば、アドインを開いた時点で使えます。
+画面下部に「異体字データ: ○○ 字分を読み込み済み」と出れば正常です。
 
-- IVD_Sequences.txt(必須): https://www.unicode.org/ivd/ のデータ一覧から最新版の `IVD_Sequences.txt`
-- StandardizedVariants.txt(任意): https://www.unicode.org/Public/UCD/latest/ucd/StandardizedVariants.txt
+同梱データの出典(Unicode 公式):
 
-アドインの画面下部「異体字データ」を開き、ファイルを選んで [読み込む]。
-読み込んだデータは各端末(Mac と Windows それぞれ)に保存されます。端末ごとに1回ずつ必要です。
+- IVD_Sequences.txt(2026-08-03 登録分まで): Moji_Joho 11,392件 / Adobe-Japan1 14,684件 / Hanyo-Denshi 13,045件 / CAAPH 198件 / MSARG 154件 / KRName 36件
+- StandardizedVariants.txt(Unicode 18.0.0): 漢字(CJK互換漢字)の 1,002 件
 
 ## 使い方
 
@@ -73,9 +73,9 @@ test/ivs.test.mjs   開発者向けのテスト(使うだけなら不要)
 - 字形はフォント次第です。IVS 対応フォント(ヒラギノ、游明朝、IPAmj明朝、源ノ明朝など)を Word で指定してください。
 - 複数文字を選んで置換すると、文字ごとの書式が失われることがあります。1文字ずつ選ぶのが確実です。
 - 「置換した文字にフォントを適用」は、環境によって日本語フォントに効かないことがあります。
+- 候補は、初期状態では Moji_Joho のものだけが表示されます。「Moji_Joho の異体字のみ表示」のチェックを外すと、他のコレクションも表示されます。
 - 異体字データは Unicode の IVD / StandardizedVariants のみです。
 - 公開した URL は誰でも開けますが、含まれるのはアドインのプログラムだけです(あなたの文書やデータは送信されません)。
-- ブラウザ版のデータ保存が消えた場合は、データを読み込み直してください。
 - 古い Word(Edge WebView2 でない Windows 版)では動かない可能性があります。
 
 ## 開発者向け

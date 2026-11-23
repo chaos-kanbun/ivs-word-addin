@@ -6,9 +6,6 @@ import {
   countVS,
   replaceCluster,
   cpHex,
-  parseIvdSequences,
-  parseStandardizedVariants,
-  buildIndex,
   glyphWikiName,
   glyphWikiUrl,
 } from "./ivs.js";
@@ -50,93 +47,18 @@ function applyPreviewFont() {
 
 const visible = (s) => (s === "\r" || s === "\n" ? "↵" : s === "\t" ? "⇥" : s === " " ? "␣" : s);
 
-// ---------- データの保存(IndexedDB) ----------
-const DB_NAME = "ivs-addin";
-const STORE = "kv";
-
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const r = indexedDB.open(DB_NAME, 1);
-    r.onupgradeneeded = () => r.result.createObjectStore(STORE);
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  });
-}
-async function idbGet(key) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const q = db.transaction(STORE).objectStore(STORE).get(key);
-    q.onsuccess = () => resolve(q.result);
-    q.onerror = () => reject(q.error);
-  });
-}
-async function idbSet(key, value) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, "readwrite");
-    tx.objectStore(STORE).put(value, key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-function setDataInfo(meta) {
-  $("dataInfo").textContent = meta
-    ? `(読み込み済み: ${meta.chars} 字 / ${meta.rows} 件)`
-    : "(未読み込み)";
-  if (!meta) $("dataBox").open = true;
-}
-
 // ---------- データ読み込み ----------
-// 優先順: ① この端末に保存済みのデータ → ② サイトに置かれた data/ivd.json(任意)
+// 同梱の data/ivd.json(Unicode IVD + StandardizedVariants から生成)を起動時に読み込む。
 async function loadIndex() {
   try {
-    const saved = await idbGet("data");
-    if (saved && saved.index) {
-      state.index = saved.index;
-      setDataInfo(saved.meta);
-      return;
-    }
-  } catch (e) {
-    console.warn("IndexedDB を読めませんでした", e);
-  }
-  try {
     const res = await fetch("./data/ivd.json", { cache: "no-cache" });
-    if (!res.ok) throw new Error(res.status);
+    if (!res.ok) throw new Error("HTTP " + res.status);
     state.index = await res.json();
-    setDataInfo({ chars: Object.keys(state.index).length, rows: "-" });
+    $("dataInfo").textContent = `異体字データ: ${Object.keys(state.index).length.toLocaleString()} 字分を読み込み済み`;
   } catch (e) {
     state.index = null;
-    setDataInfo(null);
-    status("異体字データが未読み込みです。下の「異体字データ」から txt ファイルを読み込んでください。", true);
-  }
-}
-
-async function importData() {
-  const ivdFile = $("ivdFile").files[0];
-  const svFile = $("svFile").files[0];
-  if (!ivdFile) return status("IVD_Sequences.txt を選んでください。", true);
-  try {
-    status("読み込み中…");
-    const ivdRows = parseIvdSequences(await ivdFile.text());
-    if (ivdRows.length === 0) {
-      return status("IVD_Sequences.txt から行を読み取れませんでした。ファイルを確認してください。", true);
-    }
-    const svRows = svFile ? parseStandardizedVariants(await svFile.text()) : [];
-    const index = buildIndex([...ivdRows, ...svRows]);
-    const meta = {
-      chars: Object.keys(index).length,
-      rows: ivdRows.length + svRows.length,
-      savedAt: new Date().toISOString(),
-    };
-    await idbSet("data", { index, meta });
-    state.index = index;
-    setDataInfo(meta);
-    $("dataBox").open = false;
-    recompute(true);
-    status(`読み込みました(${meta.chars} 字 / ${meta.rows} 件)。`);
-  } catch (e) {
-    status("読み込みに失敗しました: " + e.message, true);
+    $("dataInfo").textContent = "異体字データを読み込めませんでした。";
+    status("異体字データ(data/ivd.json)を読み込めませんでした。ネット接続と、データファイルの公開状況を確認してください。", true);
   }
 }
 
@@ -376,7 +298,6 @@ function bind() {
     render();
   });
   $("strip").addEventListener("click", stripSelection);
-  $("importBtn").addEventListener("click", importData);
 }
 
 Office.onReady(async (info) => {
