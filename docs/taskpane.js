@@ -294,36 +294,6 @@ async function loadKyushin() {
   }
 }
 
-// 選択範囲の中の文字を、検索・置換で差し替える(文字ごとの書式をなるべく保つ)。
-// 異体字セレクタ付きの文字を先に処理し、そのあとに単独の文字を処理する。
-// 終わったら、変換した範囲全体を選択し直す。
-async function replaceInSelection(changes) {
-  const withVS = [...changes.keys()].filter((k) => Array.from(k).length > 1);
-  const bare = [...changes.keys()].filter((k) => Array.from(k).length === 1);
-  await Word.run(async (ctx) => {
-    const sel = ctx.document.getSelection();
-    // 選択範囲の両端に目印(幅のない範囲)を置く。置換で範囲がずれても、全体を取り直せる。
-    const startR = sel.getRange("Start");
-    const endR = sel.getRange("End");
-    for (const keys of [withVS, bare]) {
-      if (keys.length === 0) continue;
-      const scope = startR.expandTo(endR);
-      const found = keys.map((k) => {
-        const r = scope.search(k, { matchCase: true });
-        r.load("items");
-        return [k, r];
-      });
-      await ctx.sync();
-      for (const [k, r] of found) {
-        for (const item of r.items) item.insertText(changes.get(k), "Replace");
-      }
-      await ctx.sync();
-    }
-    sel.expandTo(startR.expandTo(endR)).select();
-    await ctx.sync();
-  });
-}
-
 // 変換を文書(または入力欄)に反映する
 async function applyConversion(plan) {
   const typed = $("typed").value;
@@ -334,7 +304,7 @@ async function applyConversion(plan) {
     return;
   }
   if (!state.inWord) return;
-  await replaceInSelection(plan.changes);
+  await insertIntoWord(plan.text); // 異体字の反映と同じ方法で置換し、そのまま選択状態にする
   state.selText = plan.text;
   await readSelection(false); // 変換後の選択範囲から、異体字の候補をすぐに出す
 }
