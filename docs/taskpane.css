@@ -65,12 +65,6 @@ button.secondary {
 button.secondary:hover { background: #eee; }
 .btnrow { display: flex; gap: 6px; margin: 6px 0; }
 .btnrow .secondary { width: auto; flex: 1; }
-.preview {
-  border: 1px solid var(--line); border-radius: 4px; padding: 6px; margin: 6px 0;
-  max-height: 140px; overflow: auto; white-space: pre-wrap; word-break: break-all;
-  font-family: var(--glyph-font); font-size: 16px; line-height: 1.6;
-}
-.preview mark { background: #fff0b3; color: inherit; }
 .choice { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
 .choice .from { font-family: var(--glyph-font); font-size: 20px; }
 .choice select { width: auto; flex: 1; font-family: var(--glyph-font); }

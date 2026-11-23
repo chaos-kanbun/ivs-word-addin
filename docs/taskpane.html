@@ -73,19 +73,15 @@
 
   <section>
     <h2>新字体・旧字体の変換</h2>
-    <p class="muted">常用漢字表(平成22年内閣告示)の旧字体(康熙字典体)に基づきます。対象は、選択範囲(または入力欄)の文字です。</p>
+    <p class="muted">常用漢字表(平成22年内閣告示)の旧字体(康熙字典体)に基づきます。ボタンを押すと、選択範囲(または入力欄)の文字をすぐに変換します。</p>
     <div class="btnrow">
       <button id="toOld" class="secondary" type="button">旧字体へ</button>
       <button id="toNew" class="secondary" type="button">新字体へ</button>
     </div>
     <div id="kyushinPanel" hidden>
-      <p id="kyushinSummary" class="muted"></p>
+      <p class="muted">変換先が複数ある字です。選ぶと、その字だけ変換します。</p>
       <div id="kyushinChoices"></div>
-      <div id="kyushinPreview" class="preview"></div>
-      <div class="btnrow">
-        <button id="kyushinApply" class="secondary" type="button">Word に反映</button>
-        <button id="kyushinCancel" class="secondary" type="button">キャンセル</button>
-      </div>
+      <button id="kyushinCancel" class="secondary" type="button">閉じる</button>
     </div>
   </section>
 

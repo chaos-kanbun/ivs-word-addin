@@ -22,8 +22,7 @@ const state = {
   collection: "", // 絞り込み
   inWord: false,
   kyushin: null, // 新旧字体の対応表(buildMaps の結果)
-  kdir: null, // "toOld" | "toNew"
-  kchoices: {}, // 変換先が複数ある字の選択
+  kdir: null, // 直近の変換方向 "toOld" | "toNew"
 };
 
 // ---------- 表示ユーティリティ ----------
@@ -209,7 +208,7 @@ function makeCard(base, vs, collection, id, isCurrent) {
 }
 
 // ---------- Word 操作 ----------
-async function readSelection() {
+async function readSelection(keepTarget = true) {
   if (!state.inWord) return;
   try {
     await Word.run(async (ctx) => {
@@ -219,7 +218,7 @@ async function readSelection() {
       state.selText = sel.text || "";
     });
     if ($("typed").value) return; // 入力欄が優先
-    recompute(true);
+    recompute(keepTarget);
   } catch (e) {
     status("選択範囲を読み取れませんでした: " + e.message, true);
   }
@@ -295,78 +294,22 @@ async function loadKyushin() {
   }
 }
 
-function startKyushin(dir) {
-  if (!state.kyushin) return;
-  if (!sourceText()) return status("文字が選択されていません。", true);
-  state.kdir = dir;
-  state.kchoices = {};
-  renderKyushin();
-}
-
-function renderKyushin() {
-  const panel = $("kyushinPanel");
-  const plan = planConversion(sourceText(), state.kdir, state.kyushin, state.kchoices);
-  panel.hidden = false;
-
-  const unresolved = plan.ambiguous.filter((a) => !state.kchoices[a.char]).length;
-  $("kyushinSummary").textContent =
-    `${plan.count} 文字を ${state.kdir === "toOld" ? "旧字体" : "新字体"} に変換します。` +
-    (unresolved ? `(変換先を選ぶと、さらに変換できる字: ${unresolved} 種)` : "");
-
-  // 変換先が複数ある字の選択欄
-  const box = $("kyushinChoices");
-  box.textContent = "";
-  for (const a of plan.ambiguous) {
-    const row = document.createElement("label");
-    row.className = "choice";
-    const from = document.createElement("span");
-    from.className = "from";
-    from.textContent = a.char;
-    const sel = document.createElement("select");
-    sel.append(new Option("(変換しない)", ""), ...a.options.map((o) => new Option(o, o)));
-    sel.value = state.kchoices[a.char] || "";
-    sel.addEventListener("change", () => {
-      state.kchoices[a.char] = sel.value;
-      renderKyushin();
-    });
-    row.append(from, document.createTextNode("→"), sel);
-    box.appendChild(row);
-  }
-
-  // プレビュー(変換される字を強調)
-  const pv = $("kyushinPreview");
-  pv.textContent = "";
-  const MAX_PARTS = 600;
-  plan.parts.slice(0, MAX_PARTS).forEach((p) => {
-    if (p.changed) {
-      const m = document.createElement("mark");
-      m.textContent = p.text;
-      pv.appendChild(m);
-    } else {
-      pv.appendChild(document.createTextNode(p.text));
-    }
-  });
-  if (plan.parts.length > MAX_PARTS) pv.appendChild(document.createTextNode("…(以降省略)"));
-
-  $("kyushinApply").disabled = plan.count === 0;
-}
-
-function closeKyushin() {
-  $("kyushinPanel").hidden = true;
-  state.kdir = null;
-}
-
 // 選択範囲の中の文字を、検索・置換で差し替える(文字ごとの書式をなるべく保つ)。
 // 異体字セレクタ付きの文字を先に処理し、そのあとに単独の文字を処理する。
+// 終わったら、変換した範囲全体を選択し直す。
 async function replaceInSelection(changes) {
   const withVS = [...changes.keys()].filter((k) => Array.from(k).length > 1);
   const bare = [...changes.keys()].filter((k) => Array.from(k).length === 1);
-  for (const keys of [withVS, bare]) {
-    if (keys.length === 0) continue;
-    await Word.run(async (ctx) => {
-      const sel = ctx.document.getSelection();
+  await Word.run(async (ctx) => {
+    const sel = ctx.document.getSelection();
+    // 選択範囲の両端に目印(幅のない範囲)を置く。置換で範囲がずれても、全体を取り直せる。
+    const startR = sel.getRange("Start");
+    const endR = sel.getRange("End");
+    for (const keys of [withVS, bare]) {
+      if (keys.length === 0) continue;
+      const scope = startR.expandTo(endR);
       const found = keys.map((k) => {
-        const r = sel.search(k, { matchCase: true });
+        const r = scope.search(k, { matchCase: true });
         r.load("items");
         return [k, r];
       });
@@ -375,36 +318,69 @@ async function replaceInSelection(changes) {
         for (const item of r.items) item.insertText(changes.get(k), "Replace");
       }
       await ctx.sync();
-    });
-  }
+    }
+    sel.expandTo(startR.expandTo(endR)).select();
+    await ctx.sync();
+  });
 }
 
-async function applyKyushin() {
-  if (!state.kdir) return;
+// 変換を文書(または入力欄)に反映する
+async function applyConversion(plan) {
   const typed = $("typed").value;
-  const plan = planConversion(sourceText(), state.kdir, state.kyushin, state.kchoices);
-  if (plan.count === 0) return status("変換する字がありません。");
-
-  if (!state.inWord) {
-    // ブラウザ単体で開いたときの動作確認用
+  if (typed) {
+    if (state.inWord) await insertIntoWord(plan.text); // 入力欄の文字を Word に挿入して選択
     $("typed").value = plan.text;
-    closeKyushin();
-    recompute();
-    return status(`(Word外) ${plan.count} 文字を変換しました。`);
+    recompute(false); // 変換後の文字で、候補のある最初の字を選び直す
+    return;
   }
+  if (!state.inWord) return;
+  await replaceInSelection(plan.changes);
+  state.selText = plan.text;
+  await readSelection(false); // 変換後の選択範囲から、異体字の候補をすぐに出す
+}
+
+// 押したらすぐ変換する。変換先が複数ある字(弁など)だけは、下に候補を出して1クリックで選ぶ。
+async function runKyushin(dir, choices = {}) {
+  if (!state.kyushin) return;
+  const text = sourceText();
+  if (!text) return status("文字が選択されていません。", true);
+  state.kdir = dir;
+  const label = dir === "toOld" ? "旧字体" : "新字体";
+  const plan = planConversion(text, dir, state.kyushin, choices);
   try {
-    if (typed) {
-      await insertIntoWord(plan.text); // 入力欄の文字を Word に挿入
-      $("typed").value = plan.text;
-    } else {
-      await replaceInSelection(plan.changes);
-    }
-    status(`${plan.count} 文字を変換しました。`);
-    closeKyushin();
-    await readSelection();
-    if (typed) recompute();
+    if (plan.count > 0) await applyConversion(plan);
   } catch (e) {
-    status("変換に失敗しました: " + e.message, true);
+    return status("変換に失敗しました: " + e.message, true);
+  }
+  // まだ選ぶ必要のある字(変換先が複数ある字)
+  const rest = planConversion(plan.text, dir, state.kyushin, {}).ambiguous;
+  renderKyushinChoices(rest);
+  const hint = rest.length ? "変換先が複数ある字は、下の候補から選んでください。" : "";
+  if (plan.count > 0) status(`${plan.count} 文字を${label}に変換しました。${hint}`);
+  else status(rest.length ? hint : "変換する字がありません。");
+}
+
+function renderKyushinChoices(ambiguous) {
+  const panel = $("kyushinPanel");
+  const box = $("kyushinChoices");
+  box.textContent = "";
+  panel.hidden = ambiguous.length === 0;
+  for (const a of ambiguous) {
+    const row = document.createElement("div");
+    row.className = "choice";
+    const from = document.createElement("span");
+    from.className = "from";
+    from.textContent = a.char;
+    row.append(from, document.createTextNode("→"));
+    for (const o of a.options) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = o;
+      b.addEventListener("click", () => runKyushin(state.kdir, { [a.char]: o }));
+      row.appendChild(b);
+    }
+    box.appendChild(row);
   }
 }
 
@@ -428,10 +404,9 @@ function bind() {
     try { localStorage.setItem("ivs.previewMode", $("previewMode").value); } catch {}
     render();
   });
-  $("toOld").addEventListener("click", () => startKyushin("toOld"));
-  $("toNew").addEventListener("click", () => startKyushin("toNew"));
-  $("kyushinApply").addEventListener("click", applyKyushin);
-  $("kyushinCancel").addEventListener("click", closeKyushin);
+  $("toOld").addEventListener("click", () => runKyushin("toOld"));
+  $("toNew").addEventListener("click", () => runKyushin("toNew"));
+  $("kyushinCancel").addEventListener("click", () => { $("kyushinPanel").hidden = true; });
   $("strip").addEventListener("click", stripSelection);
 }
 
