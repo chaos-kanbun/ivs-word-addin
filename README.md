@@ -15,7 +15,7 @@ Office.js 製なので、Mac / Windows / ブラウザ版 Word で同じファイ
 
 ```
 manifest.xml        Word に登録する設定ファイル(URL の書き換えが必要)
-docs/               公開するファイル一式(taskpane.html / .js / .css, ivs.js, assets/, data/ivd.json)
+docs/               公開するファイル一式(taskpane.html / .js / .css, ivs.js, kyushin.js, assets/, data/ivd.json, data/shinkyu.json)
 test/ivs.test.mjs   開発者向けのテスト(使うだけなら不要)
 ```
 
@@ -60,6 +60,16 @@ test/ivs.test.mjs   開発者向けのテスト(使うだけなら不要)
 
 - IVD_Sequences.txt(2026-08-03 登録分まで): Moji_Joho 11,392件 / Adobe-Japan1 14,684件 / Hanyo-Denshi 13,045件 / CAAPH 198件 / MSARG 154件 / KRName 36件
 - StandardizedVariants.txt(Unicode 18.0.0): 漢字(CJK互換漢字)の 1,002 件
+
+## 新字体・旧字体の変換について
+
+- 辞書(`docs/data/shinkyu.json`)は、文化庁の常用漢字表(平成22年内閣告示第2号)の本表から作成しました。本表で漢字の直後に括弧書きされている旧字体(康熙字典体)を対象とし、新字体362字・旧字体364組です。
+  出典: https://www.bunka.go.jp/kokugo_nihongo/sisaku/joho/joho/kijun/naikaku/pdf/joyokanjihyo_20101130.pdf
+- 人名用漢字や、常用漢字表に旧字体の記載がない字(飲→飮 など)は含みません。
+- 変換先が複数ある字(弁→辨・瓣・辯)は、候補から選びます。選ぶまで変換しません。旧字体から新字体へは、1つに決まるため自動で変換します。
+- 旧字体のうち62字(逸、海、漢など)は、CJK互換漢字(U+FAxx)として表の中で書かれています。新字体→旧字体では、この互換漢字に変換します。新字体へ戻すときは、互換漢字のほか、「元の字+異体字セレクタ」の形(標準化異体字)も旧字体として扱います。
+- 変換した字に付いていた異体字セレクタ(IVS)は外します。
+- Word への反映は、検索・置換の仕組みで行うため、文字ごとの書式はなるべく保たれます。
 
 ## 使い方
 

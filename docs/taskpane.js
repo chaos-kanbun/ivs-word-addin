@@ -9,6 +9,7 @@ import {
   glyphWikiName,
   glyphWikiUrl,
 } from "./ivs.js";
+import { buildMaps, planConversion, svsFromIndex } from "./kyushin.js";
 
 const $ = (id) => document.getElementById(id);
 const MAX_CHIPS = 300;
@@ -20,6 +21,9 @@ const state = {
   target: 0, // 対象クラスタの位置
   collection: "", // 絞り込み
   inWord: false,
+  kyushin: null, // 新旧字体の対応表(buildMaps の結果)
+  kdir: null, // "toOld" | "toNew"
+  kchoices: {}, // 変換先が複数ある字の選択
 };
 
 // ---------- 表示ユーティリティ ----------
@@ -277,6 +281,133 @@ async function stripSelection() {
   }
 }
 
+// ---------- 新字体・旧字体の変換 ----------
+async function loadKyushin() {
+  try {
+    const res = await fetch("./data/shinkyu.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    state.kyushin = buildMaps(await res.json(), svsFromIndex(state.index));
+  } catch (e) {
+    state.kyushin = null;
+    $("toOld").disabled = true;
+    $("toNew").disabled = true;
+    status("新旧字体の辞書(data/shinkyu.json)を読み込めませんでした。", true);
+  }
+}
+
+function startKyushin(dir) {
+  if (!state.kyushin) return;
+  if (!sourceText()) return status("文字が選択されていません。", true);
+  state.kdir = dir;
+  state.kchoices = {};
+  renderKyushin();
+}
+
+function renderKyushin() {
+  const panel = $("kyushinPanel");
+  const plan = planConversion(sourceText(), state.kdir, state.kyushin, state.kchoices);
+  panel.hidden = false;
+
+  const unresolved = plan.ambiguous.filter((a) => !state.kchoices[a.char]).length;
+  $("kyushinSummary").textContent =
+    `${plan.count} 文字を ${state.kdir === "toOld" ? "旧字体" : "新字体"} に変換します。` +
+    (unresolved ? `(変換先を選ぶと、さらに変換できる字: ${unresolved} 種)` : "");
+
+  // 変換先が複数ある字の選択欄
+  const box = $("kyushinChoices");
+  box.textContent = "";
+  for (const a of plan.ambiguous) {
+    const row = document.createElement("label");
+    row.className = "choice";
+    const from = document.createElement("span");
+    from.className = "from";
+    from.textContent = a.char;
+    const sel = document.createElement("select");
+    sel.append(new Option("(変換しない)", ""), ...a.options.map((o) => new Option(o, o)));
+    sel.value = state.kchoices[a.char] || "";
+    sel.addEventListener("change", () => {
+      state.kchoices[a.char] = sel.value;
+      renderKyushin();
+    });
+    row.append(from, document.createTextNode("→"), sel);
+    box.appendChild(row);
+  }
+
+  // プレビュー(変換される字を強調)
+  const pv = $("kyushinPreview");
+  pv.textContent = "";
+  const MAX_PARTS = 600;
+  plan.parts.slice(0, MAX_PARTS).forEach((p) => {
+    if (p.changed) {
+      const m = document.createElement("mark");
+      m.textContent = p.text;
+      pv.appendChild(m);
+    } else {
+      pv.appendChild(document.createTextNode(p.text));
+    }
+  });
+  if (plan.parts.length > MAX_PARTS) pv.appendChild(document.createTextNode("…(以降省略)"));
+
+  $("kyushinApply").disabled = plan.count === 0;
+}
+
+function closeKyushin() {
+  $("kyushinPanel").hidden = true;
+  state.kdir = null;
+}
+
+// 選択範囲の中の文字を、検索・置換で差し替える(文字ごとの書式をなるべく保つ)。
+// 異体字セレクタ付きの文字を先に処理し、そのあとに単独の文字を処理する。
+async function replaceInSelection(changes) {
+  const withVS = [...changes.keys()].filter((k) => Array.from(k).length > 1);
+  const bare = [...changes.keys()].filter((k) => Array.from(k).length === 1);
+  for (const keys of [withVS, bare]) {
+    if (keys.length === 0) continue;
+    await Word.run(async (ctx) => {
+      const sel = ctx.document.getSelection();
+      const found = keys.map((k) => {
+        const r = sel.search(k, { matchCase: true });
+        r.load("items");
+        return [k, r];
+      });
+      await ctx.sync();
+      for (const [k, r] of found) {
+        for (const item of r.items) item.insertText(changes.get(k), "Replace");
+      }
+      await ctx.sync();
+    });
+  }
+}
+
+async function applyKyushin() {
+  if (!state.kdir) return;
+  const typed = $("typed").value;
+  const plan = planConversion(sourceText(), state.kdir, state.kyushin, state.kchoices);
+  if (plan.count === 0) return status("変換する字がありません。");
+
+  if (!state.inWord) {
+    // ブラウザ単体で開いたときの動作確認用
+    $("typed").value = plan.text;
+    closeKyushin();
+    recompute();
+    return status(`(Word外) ${plan.count} 文字を変換しました。`);
+  }
+  try {
+    if (typed) {
+      await insertIntoWord(plan.text); // 入力欄の文字を Word に挿入
+      $("typed").value = plan.text;
+    } else {
+      await replaceInSelection(plan.changes);
+    }
+    status(`${plan.count} 文字を変換しました。`);
+    closeKyushin();
+    await readSelection();
+    if (typed) recompute();
+  } catch (e) {
+    status("変換に失敗しました: " + e.message, true);
+  }
+}
+
 // ---------- 起動 ----------
 function bind() {
   $("typed").addEventListener("input", () => recompute());
@@ -297,6 +428,10 @@ function bind() {
     try { localStorage.setItem("ivs.previewMode", $("previewMode").value); } catch {}
     render();
   });
+  $("toOld").addEventListener("click", () => startKyushin("toOld"));
+  $("toNew").addEventListener("click", () => startKyushin("toNew"));
+  $("kyushinApply").addEventListener("click", applyKyushin);
+  $("kyushinCancel").addEventListener("click", closeKyushin);
   $("strip").addEventListener("click", stripSelection);
 }
 
@@ -308,6 +443,7 @@ Office.onReady(async (info) => {
   applyPreviewFont();
   bind();
   await loadIndex();
+  await loadKyushin();
   recompute();
   if (state.inWord) {
     Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, readSelection);
