@@ -32,22 +32,6 @@ function status(msg, isErr = false) {
   el.className = "status" + (isErr ? " err" : "");
 }
 
-function previewMode() {
-  return $("previewMode").value === "font" ? "font" : "image";
-}
-
-function currentFont() {
-  return $("font").value.trim();
-}
-
-function applyPreviewFont() {
-  const f = currentFont();
-  document.documentElement.style.setProperty(
-    "--glyph-font",
-    f ? `"${f}", "Hiragino Mincho ProN", "Yu Mincho", serif` : `"Hiragino Mincho ProN", "Yu Mincho", "IPAmjMincho", "Noto Serif CJK JP", "Source Han Serif JP", serif`
-  );
-}
-
 const visible = (s) => (s === "\r" || s === "\n" ? "↵" : s === "\t" ? "⇥" : s === " " ? "␣" : s);
 
 // ---------- データ読み込み ----------
@@ -57,18 +41,15 @@ async function loadIndex() {
     const res = await fetch("./data/ivd.json", { cache: "no-cache" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     state.index = await res.json();
-    $("dataInfo").textContent = `異体字データ: ${Object.keys(state.index).length.toLocaleString()} 字分を読み込み済み`;
   } catch (e) {
     state.index = null;
-    $("dataInfo").textContent = "異体字データを読み込めませんでした。";
     status("異体字データ(data/ivd.json)を読み込めませんでした。ネット接続と、データファイルの公開状況を確認してください。", true);
   }
 }
 
 // ---------- 対象テキストの決定 ----------
 function sourceText() {
-  const typed = $("typed").value;
-  return typed ? typed : state.selText;
+  return state.selText;
 }
 
 // 「Moji_Joho のみ表示」が ON のとき、候補を Moji_Joho コレクションに限定する
@@ -96,8 +77,6 @@ function recompute(keepTarget = false) {
 
 // ---------- 描画 ----------
 function render() {
-  $("source").textContent = $("typed").value ? "入力欄" : "選択範囲";
-
   // 対象文字のチップ
   const chips = $("chips");
   chips.textContent = "";
@@ -105,7 +84,7 @@ function render() {
   if (cl.length === 0) {
     const p = document.createElement("span");
     p.className = "muted";
-    p.textContent = "(文字が選択されていません)";
+    p.textContent = "Word で文字を選択してください";
     chips.appendChild(p);
   }
   cl.slice(0, MAX_CHIPS).forEach((c, i) => {
@@ -181,7 +160,7 @@ function makeCard(base, vs, collection, id, isCurrent) {
   fb.textContent = "フォント表示";
   fb.hidden = true;
   let visual = g;
-  if (previewMode() === "image") {
+  {
     // GlyphWiki の字形画像。読み込めなければフォント表示に戻す
     const img = new Image();
     img.className = "gimg";
@@ -217,39 +196,71 @@ async function readSelection(keepTarget = true) {
       await ctx.sync();
       state.selText = sel.text || "";
     });
-    if ($("typed").value) return; // 入力欄が優先
     recompute(keepTarget);
   } catch (e) {
     status("選択範囲を読み取れませんでした: " + e.message, true);
   }
 }
 
-async function insertIntoWord(newText) {
-  const fontName = $("applyFont").checked ? currentFont() : "";
+// 選択範囲の中の指定した文字だけを、検索・置換で差し替える。
+// 周りの文字や書式には触れないので、フォントなどの体裁は元のまま保たれる。
+// ops: [{from, to, nth}]  nth が null なら該当をすべて、数字ならその番目だけ置換する。
+// 終わったら、元の選択範囲を選択し直す(見えない しおり で範囲を覚えておく)。
+const BOOKMARK = "_ivsSel";
+async function replaceInSelection(ops) {
+  const len = (o) => Array.from(o.from).length;
   await Word.run(async (ctx) => {
     const sel = ctx.document.getSelection();
-    const r = sel.insertText(newText, "Replace");
-    if (fontName) r.font.name = fontName;
-    r.select();
-    await ctx.sync();
+    let marked = false;
+    try {
+      sel.insertBookmark(BOOKMARK);
+      await ctx.sync();
+      marked = true;
+    } catch (e) { /* しおりが使えなくても置換は続ける */ }
+    // 異体字セレクタ付きの文字を先に、そのあとに単独の文字を処理する
+    for (const pass of [ops.filter((o) => len(o) > 1), ops.filter((o) => len(o) === 1)]) {
+      if (pass.length === 0) continue;
+      const found = pass.map((o) => {
+        const r = sel.search(o.from, { matchCase: true });
+        r.load("items");
+        return r;
+      });
+      await ctx.sync();
+      pass.forEach((o, i) => {
+        const items = found[i].items;
+        const targets = o.nth == null ? items : items.slice(o.nth, o.nth + 1);
+        for (const it of targets) it.insertText(o.to, "Replace");
+      });
+      await ctx.sync();
+    }
+    if (marked) {
+      const r = ctx.document.getBookmarkRangeOrNullObject(BOOKMARK);
+      r.load("isNullObject");
+      await ctx.sync();
+      if (!r.isNullObject) r.select();
+      ctx.document.deleteBookmark(BOOKMARK);
+      await ctx.sync();
+    }
   });
+}
+
+// 対象の字(クラスタ i)が、選択範囲の中で「何番目の該当」かを数える
+function nthOf(cl, i) {
+  const t = cl[i];
+  let n = 0;
+  for (let k = 0; k < i; k++) {
+    if (t.vs != null ? cl[k].text === t.text : cl[k].base === t.base) n++;
+  }
+  return n;
 }
 
 async function applyVariant(seq) {
   const cl = state.clusters;
-  if (!cl[state.target]) return;
+  const t = cl[state.target];
+  if (!t || !state.inWord) return;
   const newText = replaceCluster(cl, state.target, seq);
-
-  if (!state.inWord) {
-    // ブラウザ単体で開いたときの動作確認用: 入力欄に反映
-    $("typed").value = newText;
-    recompute(true);
-    status("(Word外) 入力欄に反映しました。");
-    return;
-  }
   try {
-    await insertIntoWord(newText);
-    if ($("typed").value) $("typed").value = newText;
+    await replaceInSelection([{ from: t.text, to: seq, nth: nthOf(cl, state.target) }]);
     state.selText = newText;
     recompute(true);
     status("置換しました。");
@@ -263,16 +274,13 @@ async function stripSelection() {
   if (!text) return status("文字が選択されていません。", true);
   const n = countVS(text);
   if (n === 0) return status("異体字セレクタは含まれていません。");
-  const stripped = stripVS(text);
-  if (!state.inWord) {
-    $("typed").value = stripped;
-    recompute();
-    return status(`(Word外) ${n} 個除去しました。`);
-  }
+  if (!state.inWord) return;
+  const ops = [...new Set(splitClusters(text).filter((c) => c.vs != null).map((c) => c.text))].map(
+    (from) => ({ from, to: stripVS(from), nth: null })
+  );
   try {
-    await insertIntoWord(stripped);
-    if ($("typed").value) $("typed").value = stripped;
-    state.selText = stripped;
+    await replaceInSelection(ops);
+    state.selText = stripVS(text);
     recompute();
     status(`異体字セレクタを ${n} 個除去しました。`);
   } catch (e) {
@@ -294,17 +302,11 @@ async function loadKyushin() {
   }
 }
 
-// 変換を文書(または入力欄)に反映する
+// 変換を文書に反映する(変えた文字だけを置換し、体裁はそのまま)
 async function applyConversion(plan) {
-  const typed = $("typed").value;
-  if (typed) {
-    if (state.inWord) await insertIntoWord(plan.text); // 入力欄の文字を Word に挿入して選択
-    $("typed").value = plan.text;
-    recompute(false); // 変換後の文字で、候補のある最初の字を選び直す
-    return;
-  }
   if (!state.inWord) return;
-  await insertIntoWord(plan.text); // 異体字の反映と同じ方法で置換し、そのまま選択状態にする
+  const ops = [...plan.changes].map(([from, to]) => ({ from, to, nth: null }));
+  await replaceInSelection(ops);
   state.selText = plan.text;
   await readSelection(false); // 変換後の選択範囲から、異体字の候補をすぐに出す
 }
@@ -356,23 +358,14 @@ function renderKyushinChoices(ambiguous) {
 
 // ---------- 起動 ----------
 function bind() {
-  $("typed").addEventListener("input", () => recompute());
   $("collection").addEventListener("change", (e) => {
     state.collection = e.target.value;
     render();
-  });
-  $("font").addEventListener("input", () => {
-    applyPreviewFont();
-    try { localStorage.setItem("ivs.font", $("font").value); } catch {}
   });
   $("mjOnly").addEventListener("change", () => {
     try { localStorage.setItem("ivs.mjOnly", $("mjOnly").checked ? "1" : "0"); } catch {}
     state.collection = "";
     recompute(true);
-  });
-  $("previewMode").addEventListener("change", () => {
-    try { localStorage.setItem("ivs.previewMode", $("previewMode").value); } catch {}
-    render();
   });
   $("toOld").addEventListener("click", () => runKyushin("toOld"));
   $("toNew").addEventListener("click", () => runKyushin("toNew"));
@@ -382,10 +375,7 @@ function bind() {
 
 Office.onReady(async (info) => {
   state.inWord = info && info.host === Office.HostType.Word;
-  try { $("font").value = localStorage.getItem("ivs.font") || ""; } catch {}
-  try { $("previewMode").value = localStorage.getItem("ivs.previewMode") || "image"; } catch {}
   try { $("mjOnly").checked = localStorage.getItem("ivs.mjOnly") !== "0"; } catch {}
-  applyPreviewFont();
   bind();
   await loadIndex();
   await loadKyushin();
@@ -394,6 +384,6 @@ Office.onReady(async (info) => {
     Office.context.document.addHandlerAsync(Office.EventType.DocumentSelectionChanged, readSelection);
     await readSelection();
   } else {
-    status("Word 外で開いています(動作確認モード)。文字を入力欄に入れて試せます。");
+    status("Word の中で開いてください(Word 外では動作しません)。");
   }
 });

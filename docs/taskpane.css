@@ -7,15 +7,22 @@
   --glyph-font: "Hiragino Mincho ProN", "Yu Mincho", "IPAmjMincho", "Noto Serif CJK JP", "Source Han Serif JP", serif;
 }
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
-  padding: 12px;
+  padding: 10px;
   font: 13px/1.5 -apple-system, "Hiragino Sans", "Yu Gothic UI", "Segoe UI", sans-serif;
   color: var(--fg);
 }
 h1 { font-size: 16px; margin: 0 0 2px; }
 h2 { font-size: 13px; margin: 0; }
-section { margin: 14px 0; }
+main { height: 100%; display: flex; flex-direction: column; gap: 8px; }
+section { margin: 0; }
+.mid { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mid .cards { flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
+.top .chips { max-height: 76px; }
+.bottom { flex: none; }
+button.link { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
 .muted { color: var(--muted); margin: 4px 0; font-size: 12px; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
 .badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: var(--accent-bg); color: var(--accent); }
@@ -31,9 +38,9 @@ input[type="text"], input:not([type]), select {
   color: inherit;
 }
 .row select { width: auto; max-width: 60%; }
-.check { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 120px; overflow-y: auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; overflow-y: auto; }
 .chip {
   min-width: 34px; height: 34px; padding: 0 4px;
   border: 1px solid var(--line); border-radius: 4px; background: #fff;
@@ -69,5 +76,5 @@ button.secondary:hover { background: #eee; }
 .choice .from { font-family: var(--glyph-font); font-size: 20px; }
 .choice select { width: auto; flex: 1; font-family: var(--glyph-font); }
 button.secondary:disabled { opacity: 0.5; cursor: default; }
-.status { min-height: 1.5em; font-size: 12px; color: var(--muted); }
+.status { margin: 6px 0 0; min-height: 3em; font-size: 12px; color: var(--muted); }
 .status.err { color: #b3261e; }

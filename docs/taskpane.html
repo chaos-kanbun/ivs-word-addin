@@ -8,90 +8,42 @@
   <link rel="stylesheet" href="taskpane.css" />
 </head>
 <body>
-  <header>
-    <h1>異体字セレクタ</h1>
-    <p class="muted">Wordで文字を選択すると、異体字の候補が表示されます。</p>
-  </header>
+  <main>
+    <section class="top">
+      <div class="row">
+        <h2>対象の文字</h2>
+        <span id="current" class="muted"></span>
+      </div>
+      <div id="chips" class="chips" aria-label="対象文字の選択"></div>
+    </section>
 
-  <section>
-    <label class="field">
-      <span>文字を直接入力(空欄なら選択範囲を使用)</span>
-      <input id="typed" type="text" placeholder="例: 葛" autocomplete="off" />
-    </label>
-  </section>
+    <section class="mid">
+      <div class="row">
+        <label class="check">
+          <input id="mjOnly" type="checkbox" checked />
+          <span>Moji_Joho のみ</span>
+        </label>
+        <select id="collection" aria-label="コレクションで絞り込み"></select>
+      </div>
+      <div id="cards" class="cards"></div>
+    </section>
 
-  <section>
-    <div class="row">
-      <h2>対象の文字</h2>
-      <span id="source" class="badge">選択範囲</span>
-    </div>
-    <div id="chips" class="chips" aria-label="対象文字の選択"></div>
-    <p id="current" class="muted"></p>
-  </section>
-
-  <section>
-    <div class="row">
-      <h2>候補</h2>
-      <select id="collection" aria-label="コレクションで絞り込み"></select>
-    </div>
-    <label class="check">
-      <input id="mjOnly" type="checkbox" checked />
-      <span>Moji_Joho の異体字のみ表示</span>
-    </label>
-    <div id="cards" class="cards"></div>
-  </section>
-
-  <section>
-    <h2>プレビュー</h2>
-    <label class="field">
-      <span>表示方式</span>
-      <select id="previewMode">
-        <option value="image">GlyphWiki の画像(ネット接続が必要)</option>
-        <option value="font">フォントで表示</option>
-      </select>
-    </label>
-    <p class="muted">画像は字形の見本です。Word での実際の表示は、使うフォントに依存します。</p>
-    <label class="field">
-      <span>プレビューのフォント</span>
-      <input id="font" list="fonts" placeholder="空欄で自動" autocomplete="off" />
-      <datalist id="fonts">
-        <option value="Hiragino Mincho ProN"></option>
-        <option value="Hiragino Kaku Gothic ProN"></option>
-        <option value="Yu Mincho"></option>
-        <option value="Yu Gothic"></option>
-        <option value="IPAmjMincho"></option>
-        <option value="Source Han Serif JP"></option>
-        <option value="Noto Serif CJK JP"></option>
-        <option value="MS Mincho"></option>
-      </datalist>
-    </label>
-    <label class="check">
-      <input id="applyFont" type="checkbox" />
-      <span>置換した文字にもこのフォントを適用する</span>
-    </label>
-  </section>
-
-  <section>
-    <h2>新字体・旧字体の変換</h2>
-    <p class="muted">常用漢字表(平成22年内閣告示)の旧字体(康熙字典体)に基づきます。ボタンを押すと、選択範囲(または入力欄)の文字をすぐに変換します。</p>
-    <div class="btnrow">
-      <button id="toOld" class="secondary" type="button">旧字体へ</button>
-      <button id="toNew" class="secondary" type="button">新字体へ</button>
-    </div>
-    <div id="kyushinPanel" hidden>
-      <p class="muted">変換先が複数ある字です。選ぶと、その字だけ変換します。</p>
-      <div id="kyushinChoices"></div>
-      <button id="kyushinCancel" class="secondary" type="button">閉じる</button>
-    </div>
-  </section>
-
-  <section>
-    <button id="strip" class="secondary">選択範囲の異体字セレクタをすべて除去</button>
-  </section>
-
-  <p id="dataInfo" class="muted"></p>
-
-  <p id="status" class="status" role="status"></p>
+    <section class="bottom">
+      <div id="kyushinPanel" hidden>
+        <div class="row">
+          <span class="muted">変換先が複数ある字:選ぶとその字だけ変換</span>
+          <button id="kyushinCancel" class="link" type="button">閉じる</button>
+        </div>
+        <div id="kyushinChoices"></div>
+      </div>
+      <div class="btnrow">
+        <button id="toOld" class="secondary" type="button">旧字体へ</button>
+        <button id="toNew" class="secondary" type="button">新字体へ</button>
+        <button id="strip" class="secondary" type="button">IVS除去</button>
+      </div>
+      <p id="status" class="status" role="status"></p>
+    </section>
+  </main>
 
   <script type="module" src="taskpane.js"></script>
 </body>
